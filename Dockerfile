@@ -1,8 +1,13 @@
-FROM golang:1.10.2
+FROM golang:1.10.2 AS builder
 WORKDIR /go/src/app
-COPY . .
-RUN CGO_ENABLE=0 GOOS=linux go build -o vault-init -v .
+ADD . .
+RUN \
+  CGO_ENABLED=0 \
+  GOOS=linux \
+  GOARCH=amd64 \
+  go build -a -installsuffix cgo -o vault-init .
 
-FROM launcher.gcr.io/google/debian9:latest
-COPY --from=0 /go/src/app/vault-init .
-ENTRYPOINT ["/vault-init"]
+FROM scratch
+ADD https://curl.haxx.se/ca/cacert.pem /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /go/src/app/vault-init /
+CMD ["/vault-init"]

@@ -8,16 +8,12 @@ After `vault-init` initializes a Vault server it stores master keys and root tok
 
 The `vault-init` service is designed to be run alongside a Vault server and communicate over local host.
 
-### Kubernetes
-
-Run `vault-init` in the same Pod as the Vault container. See the [vault statefulset](statefulset.yaml) for a complete example.
-
 ## Configuration
 
 The vault-init service supports the following environment variables for configuration:
 
 * `CHECK_INTERVAL` - The time in seconds between Vault health checks. (300)
-* `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key and root token is stored. 
+* `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key and root token is stored.
 * `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the vault master key and root token.
 
 ### Example Values
