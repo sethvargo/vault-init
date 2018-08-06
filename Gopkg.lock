@@ -12,8 +12,14 @@
     "internal/version",
     "storage"
   ]
-  revision = "29f476ffa9c4cd4fd14336b6043090ac1ad76733"
-  version = "v0.21.0"
+  revision = "aad3f485ee528456e0768f20397b4d9dd941e755"
+  version = "v0.25.0"
+
+[[projects]]
+  name = "contrib.go.opencensus.io/exporter/stackdriver"
+  packages = ["propagation"]
+  revision = "37aa2801fbf0205003e15636096ebf0373510288"
+  version = "v0.5.0"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -25,8 +31,8 @@
     "ptypes/duration",
     "ptypes/timestamp"
   ]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/googleapis/gax-go"
@@ -37,7 +43,7 @@
 [[projects]]
   name = "go.opencensus.io"
   packages = [
-    "exporter/stackdriver/propagation",
+    ".",
     "internal",
     "internal/tagencoding",
     "plugin/ochttp",
@@ -50,8 +56,8 @@
     "trace/internal",
     "trace/propagation"
   ]
-  revision = "0095aec66ae14801c6711210f6f0716411cefdd3"
-  version = "v0.8.0"
+  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
+  version = "v0.14.0"
 
 [[projects]]
   branch = "master"
@@ -64,10 +70,9 @@
     "http2/hpack",
     "idna",
     "internal/timeseries",
-    "lex/httplex",
     "trace"
   ]
-  revision = "5f9ae10d9af5b1c89ae6904293b14b064d4ada23"
+  revision = "f4c29de78a2a91c00474a2e689954305c350adf9"
 
 [[projects]]
   branch = "master"
@@ -79,7 +84,13 @@
     "jws",
     "jwt"
   ]
-  revision = "6881fee410a5daf86371371f9ad451b95e168b71"
+  revision = "3d292e4d0cdc3a0113e6d207bb137145ef1de42f"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = ["unix"]
+  revision = "2be389f392cd91df245b41638f818a1c041f0c08"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -117,7 +128,7 @@
     "storage/v1",
     "transport/http"
   ]
-  revision = "8b8c1d4168b3aa7d5fbdb9eb159a1a7ac0cc146d"
+  revision = "be9bae08949f9a8016af0a0bbc50e170e35223df"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -133,8 +144,8 @@
     "internal/urlfetch",
     "urlfetch"
   ]
-  revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
-  version = "v1.0.0"
+  revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -145,7 +156,7 @@
     "googleapis/rpc/code",
     "googleapis/rpc/status"
   ]
-  revision = "7fd901a49ba6a7f87732eb344f6e3c5b19d1b200"
+  revision = "daca94659cb50e9f37c1b834680f2e46358f10b0"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -159,9 +170,13 @@
     "credentials",
     "encoding",
     "encoding/proto",
-    "grpclb/grpc_lb_v1/messages",
     "grpclog",
     "internal",
+    "internal/backoff",
+    "internal/channelz",
+    "internal/envconfig",
+    "internal/grpcrand",
+    "internal/transport",
     "keepalive",
     "metadata",
     "naming",
@@ -171,15 +186,14 @@
     "resolver/passthrough",
     "stats",
     "status",
-    "tap",
-    "transport"
+    "tap"
   ]
-  revision = "d11072e7ca9811b1100b80ca0269ac831f06d024"
-  version = "v1.11.3"
+  revision = "32fb0ac620c32ba40a4626ddf94d90d12cce3455"
+  version = "v1.14.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2b95bc292d113b22ef60f8f89f313694982d245275d876d52ad1cefe0604698e"
+  inputs-digest = "705e350edbabc4d862654d5c6fd077b2e4d8309b5300425da1bd047c7d266d16"
   solver-name = "gps-cdcl"
   solver-version = 1
