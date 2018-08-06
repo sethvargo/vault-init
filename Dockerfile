@@ -1,4 +1,4 @@
-FROM golang:1.10.2 AS builder
+FROM golang:1.10.3 AS builder
 WORKDIR /go/src/app
 ADD . .
 RUN \
