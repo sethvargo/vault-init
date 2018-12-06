@@ -29,22 +29,30 @@ import (
 
 var (
 	vaultAddr     string
-	checkInterval string
 	gcsBucketName string
 	httpClient    http.Client
+
+	vaultSecretShares      int
+	vaultSecretThreshold   int
+	vaultStoredShares      int
+	vaultRecoveryShares    int
+	vaultRecoveryThreshold int
 
 	kmsService *cloudkms.Service
 	kmsKeyId   string
 
 	storageClient *storage.Client
 
-	userAgent = fmt.Sprintf("vault-init/0.1.0 (%s)", runtime.Version())
+	userAgent = fmt.Sprintf("vault-init/1.0.0 (%s)", runtime.Version())
 )
 
 // InitRequest holds a Vault init request.
 type InitRequest struct {
-	SecretShares    int `json:"secret_shares"`
-	SecretThreshold int `json:"secret_threshold"`
+	SecretShares      int `json:"secret_shares"`
+	SecretThreshold   int `json:"secret_threshold"`
+	StoredShares      int `json:"stored_shares"`
+	RecoveryShares    int `json:"recovery_shares"`
+	RecoveryThreshold int `json:"recovery_threshold"`
 }
 
 // InitResponse holds a Vault init response.
@@ -76,17 +84,18 @@ func main() {
 		vaultAddr = "https://127.0.0.1:8200"
 	}
 
-	checkInterval = os.Getenv("CHECK_INTERVAL")
-	if checkInterval == "" {
-		checkInterval = "10"
+	vaultSecretShares = intFromEnv("VAULT_SECRET_SHARES", 5)
+	vaultSecretThreshold = intFromEnv("VAULT_SECRET_THRESHOLD", 3)
+
+	vaultAutoUnseal := boolFromEnv("VAULT_AUTO_UNSEAL", true)
+
+	if vaultAutoUnseal {
+		vaultStoredShares = intFromEnv("VAULT_STORED_SHARES", 1)
+		vaultRecoveryShares = intFromEnv("VAULT_RECOVERY_SHARES", 1)
+		vaultRecoveryThreshold = intFromEnv("VAULT_RECOVERY_THRESHOLD", 1)
 	}
 
-	i, err := strconv.Atoi(checkInterval)
-	if err != nil {
-		log.Fatalf("CHECK_INTERVAL is invalid: %s", err)
-	}
-
-	checkIntervalDuration := time.Duration(i) * time.Second
+	checkInterval := durFromEnv("CHECK_INTERVAL", 10*time.Second)
 
 	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
 	if gcsBucketName == "" {
@@ -159,7 +168,7 @@ func main() {
 
 		if err != nil {
 			log.Println(err)
-			time.Sleep(checkIntervalDuration)
+			time.Sleep(checkInterval)
 			continue
 		}
 
@@ -169,30 +178,40 @@ func main() {
 		case 429:
 			log.Println("Vault is unsealed and in standby mode.")
 		case 501:
-			log.Println("Vault is not initialized. Initializing and unsealing...")
+			log.Println("Vault is not initialized.")
+			log.Println("Initializing...")
 			initialize()
-			unseal()
+			if !vaultAutoUnseal {
+				log.Println("Unsealing...")
+				unseal()
+			}
 		case 503:
-			log.Println("Vault is sealed. Unsealing...")
-			unseal()
+			log.Println("Vault is sealed.")
+			if !vaultAutoUnseal {
+				log.Println("Unsealing...")
+				unseal()
+			}
 		default:
 			log.Printf("Vault is in an unknown state. Status code: %d", response.StatusCode)
 		}
 
-		log.Printf("Next check in %s", checkIntervalDuration)
+		log.Printf("Next check in %s", checkInterval)
 
 		select {
 		case <-signalCh:
 			stop()
-		case <-time.After(checkIntervalDuration):
+		case <-time.After(checkInterval):
 		}
 	}
 }
 
 func initialize() {
 	initRequest := InitRequest{
-		SecretShares:    5,
-		SecretThreshold: 3,
+		SecretShares:      vaultSecretShares,
+		SecretThreshold:   vaultSecretThreshold,
+		StoredShares:      vaultStoredShares,
+		RecoveryShares:    vaultRecoveryShares,
+		RecoveryThreshold: vaultRecoveryThreshold,
 	}
 
 	initRequestData, err := json.Marshal(&initRequest)
@@ -378,4 +397,44 @@ func unsealOne(key string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func boolFromEnv(env string, def bool) bool {
+	val := os.Getenv(env)
+	if val == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(val)
+	if err != nil {
+		log.Fatalf("failed to parse %q: %s", env, err)
+	}
+	return b
+}
+
+func intFromEnv(env string, def int) int {
+	val := os.Getenv(env)
+	if val == "" {
+		return def
+	}
+	i, err := strconv.Atoi(val)
+	if err != nil {
+		log.Fatalf("failed to parse %q: %s", env, err)
+	}
+	return i
+}
+
+func durFromEnv(env string, def time.Duration) time.Duration {
+	val := os.Getenv(env)
+	if val == "" {
+		return def
+	}
+	r := val[len(val)-1]
+	if r >= '0' || r <= '9' {
+		val = val + "s" // assume seconds
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil {
+		log.Fatalf("failed to parse %q: %s", env, err)
+	}
+	return d
 }

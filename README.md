@@ -21,27 +21,45 @@ To use this as part of a Kubernetes Vault Deployment:
 ```yaml
 containers:
 - name: vault-init
-  image: registry.hub.docker.com/sethvargo/vault-init:0.1.1
+  image: registry.hub.docker.com/sethvargo/vault-init:1.0.0
   imagePullPolicy: Always
   env:
   - name: GCS_BUCKET_NAME
     value: my-gcs-bucket
   - name: KMS_KEY_ID
-    value: my-kms-key-id
+    value: projects/my-project/locations/my-location/cryptoKeys/my-key
 ```
 
 ## Configuration
 
 The vault-init service supports the following environment variables for configuration:
 
-* `CHECK_INTERVAL` - The time in seconds between Vault health checks. (300)
-* `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key and root token is stored.
-* `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the vault master key and root token.
+- `CHECK_INTERVAL` - The time duration between Vault health checks. ("10s")
+
+- `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key and root token is stored.
+
+- `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the vault master key and root token.
+
+- `VAULT_SECRET_SHARES` - The number of human shares to create (5).
+
+- `VAULT_SECRET_THRESHOLD` - The number of human shares required to unseal (3).
+
+- `VAULT_AUTO_UNSEAL` - Use Vault 1.0 native auto-unsealing directly. You must
+  set the seal configuration in Vault's configuration.
+
+- `VAULT_STORED_SHARES` - Number of shares to store on KMS. Only applies to
+  Vault 1.0 native auto-unseal. (1)
+
+- `VAULT_RECOVERY_SHARES` - Number of recovery shares to generate. Only applies
+  to Vault 1.0 native auto-unseal. (1)
+
+- `VAULT_RECOVERY_THRESHOLD` - Number of recovery shares needed to unseal. Only
+  applies to Vault 1.0 native auto-unseal. (1)
 
 ### Example Values
 
 ```
-CHECK_INTERVAL="300"
+CHECK_INTERVAL="30s"
 GCS_BUCKET_NAME="vault-storage"
 KMS_KEY_ID="projects/my-project/locations/global/keyRings/my-keyring/cryptoKeys/key"
 ```
