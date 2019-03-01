@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,6 +39,13 @@ var (
 	vaultRecoveryShares    int
 	vaultRecoveryThreshold int
 
+	rootTokenPgpKeyString      string
+	rootTokenPgpKey            string
+	vaultPgpKeysString         string
+	pgpKeys                    []string
+	vaultRecoveryPgpKeysString string
+	recoveryPgpKeys            []string
+
 	kmsService *cloudkms.Service
 	kmsKeyId   string
 
@@ -48,11 +56,14 @@ var (
 
 // InitRequest holds a Vault init request.
 type InitRequest struct {
-	SecretShares      int `json:"secret_shares"`
-	SecretThreshold   int `json:"secret_threshold"`
-	StoredShares      int `json:"stored_shares"`
-	RecoveryShares    int `json:"recovery_shares"`
-	RecoveryThreshold int `json:"recovery_threshold"`
+	RootTokenPgpKey   string   `json:"root_token_pgp_key,omitempty"`
+	PgpKeys           []string `json:"pgp_keys,omitempty"`
+	SecretShares      int      `json:"secret_shares"`
+	SecretThreshold   int      `json:"secret_threshold"`
+	StoredShares      int      `json:"stored_shares"`
+	RecoveryPgpKeys   []string `json:"recovery_pgp_keys,omitempty"`
+	RecoveryShares    int      `json:"recovery_shares"`
+	RecoveryThreshold int      `json:"recovery_threshold"`
 }
 
 // InitResponse holds a Vault init response.
@@ -96,6 +107,10 @@ func main() {
 	}
 
 	checkInterval := durFromEnv("CHECK_INTERVAL", 10*time.Second)
+
+	rootTokenPgpKeyString = os.Getenv("ROOT_TOKEN_PGP_KEY")
+	vaultPgpKeysString = os.Getenv("PGP_KEYS")
+	vaultRecoveryPgpKeysString = os.Getenv("RECOVERY_PGP_KEYS")
 
 	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
 	if gcsBucketName == "" {
@@ -206,10 +221,56 @@ func main() {
 }
 
 func initialize() {
+
+	if len(vaultRecoveryPgpKeysString) > 0 {
+		log.Printf("PGP Encryption of Recovery Keys requested")
+		keys := strings.Split(trimQuote(vaultRecoveryPgpKeysString), ",")
+
+		for k := range keys {
+			log.Printf("Loading key %s for Recovery Share %d", keys[k], k)
+			data, err := ioutil.ReadFile(keys[k])
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			recoveryPgpKeys = append(recoveryPgpKeys, string(data))
+		}
+	}
+
+	if len(vaultPgpKeysString) > 0 {
+		log.Printf("PGP Encryption of Sharded Keys requested")
+		keys := strings.Split(trimQuote(vaultPgpKeysString), ",")
+
+		for k := range keys {
+			log.Printf("Loading key %s for Key Share %d", keys[k], k)
+			data, err := ioutil.ReadFile(keys[k])
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			pgpKeys = append(pgpKeys, string(data))
+		}
+	}
+
+	if len(rootTokenPgpKeyString) > 0 {
+		log.Printf("PGP Encryption of Root Token requested")
+		data, err := ioutil.ReadFile(trimQuote(rootTokenPgpKeyString))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		rootTokenPgpKey = string(data)
+	}
+
 	initRequest := InitRequest{
+		RootTokenPgpKey:   rootTokenPgpKey,
+		PgpKeys:           pgpKeys,
 		SecretShares:      vaultSecretShares,
 		SecretThreshold:   vaultSecretThreshold,
 		StoredShares:      vaultStoredShares,
+		RecoveryPgpKeys:   recoveryPgpKeys,
 		RecoveryShares:    vaultRecoveryShares,
 		RecoveryThreshold: vaultRecoveryThreshold,
 	}
@@ -242,6 +303,7 @@ func initialize() {
 
 	if response.StatusCode != 200 {
 		log.Printf("init: non 200 status code: %d", response.StatusCode)
+		log.Printf("ResponseBody: %s", initRequestResponseBody)
 		return
 	}
 
@@ -437,4 +499,14 @@ func durFromEnv(env string, def time.Duration) time.Duration {
 		log.Fatalf("failed to parse %q: %s", env, err)
 	}
 	return d
+}
+
+func trimQuote(s string) string {
+	if len(s) > 0 && (s[0] == '"' || s[0] == '\'') {
+		s = s[1:]
+	}
+	if len(s) > 0 && (s[len(s)-1] == '"' || s[len(s)-1] == '\'') {
+		s = s[:len(s)-1]
+	}
+	return s
 }
