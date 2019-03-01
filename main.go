@@ -87,6 +87,8 @@ func main() {
 	vaultSecretShares = intFromEnv("VAULT_SECRET_SHARES", 5)
 	vaultSecretThreshold = intFromEnv("VAULT_SECRET_THRESHOLD", 3)
 
+	vaultTlsSkipVerify := boolFromEnv("VAULT_INSECURE_TLS_SKIP_VERIFY", true)
+
 	vaultAutoUnseal := boolFromEnv("VAULT_AUTO_UNSEAL", true)
 
 	if vaultAutoUnseal {
@@ -135,7 +137,7 @@ func main() {
 	httpClient = http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: vaultTlsSkipVerify,
 			},
 		},
 	}
