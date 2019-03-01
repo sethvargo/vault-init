@@ -56,6 +56,15 @@ The vault-init service supports the following environment variables for configur
 - `VAULT_RECOVERY_THRESHOLD` - Number of recovery shares needed to unseal. Only
   applies to Vault 1.0 native auto-unseal. (1)
 
+- `PGP_KEYS` - Comma separated list of base64 encoded public keys file paths to be used to encrypt Secret Shares. **It does not support keybase**
+  the files must exist and be accessible to the vault-init process, if you are running a docker container make sure to mount the right volume
+
+- `RECOVERY_PGP_KEYS` - Comma separated list of base64 encoded public keys file paths to be used to encrypt the Recovery Shares. **It does not support keybase**
+  the files must exist and be accessible to the vault-init process, if you are running a docker container make sure to mount the right volume
+
+- `ROOT_TOKEN_PGP_KEY` - base64 encoded public key file path to be used to encrypt the Root Token. **It does not support keybase**
+  the file must exist and be accessible to the vault-init process, if you are running a docker container make sure to mount the right volume
+
 ### Example Values
 
 ```
