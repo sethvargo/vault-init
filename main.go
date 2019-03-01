@@ -95,6 +95,7 @@ func main() {
 		vaultRecoveryThreshold = intFromEnv("VAULT_RECOVERY_THRESHOLD", 1)
 	}
 
+	oneShotRun := boolFromEnv("VAULT_INIT_ONE_SHOT", false)
 	checkInterval := durFromEnv("CHECK_INTERVAL", 10*time.Second)
 
 	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
@@ -193,6 +194,11 @@ func main() {
 			}
 		default:
 			log.Printf("Vault is in an unknown state. Status code: %d", response.StatusCode)
+		}
+
+		if oneShotRun {
+			log.Printf("Single run of vault-init requested. Exiting")
+			stop()
 		}
 
 		log.Printf("Next check in %s", checkInterval)

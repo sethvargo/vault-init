@@ -36,6 +36,9 @@ The vault-init service supports the following environment variables for configur
 
 - `CHECK_INTERVAL` - The time duration between Vault health checks. ("10s")
 
+- `VAULT_INIT_ONE_SHOT` - Enable a single run of vault-init, this is useful when using auto-unsealing so to
+   exit after init is done. (false)
+
 - `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key and root token is stored.
 
 - `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the vault master key and root token.
