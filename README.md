@@ -56,6 +56,9 @@ The vault-init service supports the following environment variables for configur
 - `VAULT_RECOVERY_THRESHOLD` - Number of recovery shares needed to unseal. Only
   applies to Vault 1.0 native auto-unseal. (1)
 
+- `VAULT_SKIP_VERIFY` - Disable TLS validation when connecting. Defaults to
+  false. Setting to true is highly discouraged.
+
 ### Example Values
 
 ```
