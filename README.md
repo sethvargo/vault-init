@@ -37,28 +37,30 @@ The vault-init service supports the following environment variables for configur
 - `CHECK_INTERVAL` ("10s") - The time duration between Vault health checks. Set
   this to a negative number to unseal once and exit.
 
-- `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key and root token is stored.
+- `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key
+  and root token is stored.
 
-- `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the vault master key and root token.
+- `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the
+  vault master key and root token.
 
-- `VAULT_SECRET_SHARES` - The number of human shares to create (5).
+- `VAULT_SECRET_SHARES` (5) - The number of human shares to create.
 
-- `VAULT_SECRET_THRESHOLD` - The number of human shares required to unseal (3).
+- `VAULT_SECRET_THRESHOLD` (3) - The number of human shares required to unseal.
 
 - `VAULT_AUTO_UNSEAL` - Use Vault 1.0 native auto-unsealing directly. You must
   set the seal configuration in Vault's configuration.
 
-- `VAULT_STORED_SHARES` - Number of shares to store on KMS. Only applies to
-  Vault 1.0 native auto-unseal. (1)
+- `VAULT_STORED_SHARES` (1) - Number of shares to store on KMS. Only applies to
+  Vault 1.0 native auto-unseal.
 
-- `VAULT_RECOVERY_SHARES` - Number of recovery shares to generate. Only applies
-  to Vault 1.0 native auto-unseal. (1)
+- `VAULT_RECOVERY_SHARES` (1) - Number of recovery shares to generate. Only
+  applies to Vault 1.0 native auto-unseal.
 
-- `VAULT_RECOVERY_THRESHOLD` - Number of recovery shares needed to unseal. Only
-  applies to Vault 1.0 native auto-unseal. (1)
+- `VAULT_RECOVERY_THRESHOLD` (1) - Number of recovery shares needed to unseal.
+  Only applies to Vault 1.0 native auto-unseal.
 
-- `VAULT_SKIP_VERIFY` - Disable TLS validation when connecting. Defaults to
-  false. Setting to true is highly discouraged.
+- `VAULT_SKIP_VERIFY` (false) - Disable TLS validation when connecting. Setting
+  to true is highly discouraged.
 
 ### Example Values
 
