@@ -197,6 +197,11 @@ func main() {
 			log.Printf("Vault is in an unknown state. Status code: %d", response.StatusCode)
 		}
 
+		if checkInterval <= 0 {
+			log.Printf("Check interval set to less than 0, exiting.")
+			stop()
+		}
+
 		log.Printf("Next check in %s", checkInterval)
 
 		select {

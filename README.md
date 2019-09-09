@@ -34,7 +34,8 @@ containers:
 
 The vault-init service supports the following environment variables for configuration:
 
-- `CHECK_INTERVAL` - The time duration between Vault health checks. ("10s")
+- `CHECK_INTERVAL` ("10s") - The time duration between Vault health checks. Set
+  this to a negative number to unseal once and exit.
 
 - `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the vault master key and root token is stored.
 
