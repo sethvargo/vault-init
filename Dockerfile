@@ -1,13 +1,15 @@
 FROM golang:1.14 AS builder
 
+RUN apt-get -qq update && apt-get -yqq install upx
+
 ENV GO111MODULE=on \
   CGO_ENABLED=0 \
   GOOS=linux \
   GOARCH=amd64
 
-WORKDIR /go/src/app
-COPY . .
+WORKDIR /src
 
+COPY . .
 RUN go build \
   -a \
   -trimpath \
@@ -18,7 +20,14 @@ RUN go build \
   -o /bin/vault-init \
   .
 
+RUN strip /bin/vault-init
+
+RUN upx -q -9 /bin/vault-init
+
+
+
+
 FROM scratch
-ADD https://curl.haxx.se/ca/cacert.pem /etc/ssl/certs/ca-certificates.crt
-COPY --from=builder /bin/vault-init /
-CMD ["/vault-init"]
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /bin/vault-init /bin/vault-init
+CMD ["/bin/vault-init"]
