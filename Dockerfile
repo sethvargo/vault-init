@@ -7,7 +7,7 @@ ENV GO111MODULE=on \
 
 WORKDIR /go/src/app
 COPY . .
-
+RUN go mod vendor
 RUN go build \
   -a \
   -ldflags "-s -w -extldflags 'static'" \
