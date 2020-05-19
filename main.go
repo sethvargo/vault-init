@@ -74,6 +74,19 @@ func main() {
 		vaultAddr = "https://127.0.0.1:8200"
 	}
 
+	vaultSecretShares = intFromEnv("VAULT_SECRET_SHARES", 5)
+	vaultSecretThreshold = intFromEnv("VAULT_SECRET_THRESHOLD", 3)
+	
+	vaultInsecureSkipVerify := boolFromEnv("VAULT_SKIP_VERIFY", false)
+
+	vaultAutoUnseal := boolFromEnv("VAULT_AUTO_UNSEAL", true)
+
+	if vaultAutoUnseal {
+		vaultStoredShares = intFromEnv("VAULT_STORED_SHARES", 1)
+		vaultRecoveryShares = intFromEnv("VAULT_RECOVERY_SHARES", 1)
+		vaultRecoveryThreshold = intFromEnv("VAULT_RECOVERY_THRESHOLD", 1)
+	}
+
 	checkInterval := durFromEnv("CHECK_INTERVAL", 10*time.Second)
 
 	s3BucketName = os.Getenv("S3_BUCKET_NAME")
@@ -86,24 +99,10 @@ func main() {
 		log.Fatal("KMS_KEY_ID must be set and not empty")
 	}
 
-	vaultSecretShares = intFromEnv("VAULT_SECRET_SHARES", 5)
-	vaultSecretThreshold = intFromEnv("VAULT_SECRET_THRESHOLD", 3)
-
-	vaultAutoUnseal := boolFromEnv("VAULT_AUTO_UNSEAL", true)
-
-	if vaultAutoUnseal {
-		vaultStoredShares = intFromEnv("VAULT_STORED_SHARES", 1)
-		vaultRecoveryShares = intFromEnv("VAULT_RECOVERY_SHARES", 1)
-		vaultRecoveryThreshold = intFromEnv("VAULT_RECOVERY_THRESHOLD", 1)
-	}
-
-	timeout := time.Duration(40 * time.Second)
-
 	httpClient = http.Client{
-		Timeout: timeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: vaultInsecureSkipVerify,
 			},
 		},
 	}
