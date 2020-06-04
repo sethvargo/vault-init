@@ -21,7 +21,7 @@ To use this as part of a Kubernetes Vault Deployment:
 ```yaml
 containers:
 - name: vault-init
-  image: registry.hub.docker.com/sethvargo/vault-init:1.1.2
+  image: registry.hub.docker.com/sethvargo/vault-init:0.1.2
   imagePullPolicy: Always
   env:
   - name: GCS_BUCKET_NAME
