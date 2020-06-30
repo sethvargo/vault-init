@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kms"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -67,7 +67,9 @@ type UnsealResponse struct {
 }
 
 func main() {
-	log.Println("Starting the vault-init service...")
+	logrus.SetLevel(getLogLevel())
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+        logrus.Info("Starting the vault-init service...")
 
 	vaultAddr = os.Getenv("VAULT_ADDR")
 	if vaultAddr == "" {
@@ -91,12 +93,12 @@ func main() {
 
 	s3BucketName = os.Getenv("S3_BUCKET_NAME")
 	if s3BucketName == "" {
-		log.Fatal("S3_BUCKET_NAME must be set and not empty")
+		logrus.Fatal("S3_BUCKET_NAME must be set and not empty")
 	}
 
 	kmsKeyId = os.Getenv("KMS_KEY_ID")
 	if kmsKeyId == "" {
-		log.Fatal("KMS_KEY_ID must be set and not empty")
+		logrus.Fatal("KMS_KEY_ID must be set and not empty")
 	}
 
 	httpClient = http.Client{
@@ -114,35 +116,35 @@ func main() {
 		}
 
 		if err != nil {
-			log.Println(err)
+			logrus.Error(err)
 			time.Sleep(checkInterval)
 			continue
 		}
 
 		switch response.StatusCode {
 		case 200:
-			log.Println("Vault is initialized and unsealed.")
+			logrus.Debug("Vault is initialized and unsealed.")
 		case 429:
-			log.Println("Vault is unsealed and in standby mode.")
+			logrus.Info("Vault is unsealed and in standby mode.")
 		case 501:
-			log.Println("Vault is not initialized.")
-			log.Println("Initializing...")
+			logrus.Info("Vault is not initialized.")
+			logrus.Info("Initializing...")
 			initialize()
 			if !vaultAutoUnseal {
-				log.Println("Unsealing...")
+				logrus.Info("Unsealing...")
 				unseal()
 			}
 		case 503:
-			log.Println("Vault is sealed.")
+			logrus.Info("Vault is sealed.")
 			if !vaultAutoUnseal {
-				log.Println("Unsealing...")
+				logrus.Info("Unsealing...")
 				unseal()
 			}
 		default:
-			log.Printf("Vault is in an unknown state. Status code: %d", response.StatusCode)
+			logrus.Warning("Vault is in an unknown state. Status code: %d", response.StatusCode)
 		}
 
-		log.Printf("Next check in %s", checkInterval)
+		logrus.Debug("Next check in %s", checkInterval)
 		time.Sleep(checkInterval)
 	}
 }
@@ -158,7 +160,7 @@ func initialize() {
 
 	initRequestData, err := json.Marshal(&initRequest)
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
@@ -166,39 +168,39 @@ func initialize() {
 
 	request, err := http.NewRequest("PUT", vaultAddr+"/v1/sys/init", r)
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
 	response, err := httpClient.Do(request)
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
 	initRequestResponseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
 	if response.StatusCode != 200 {
-		log.Printf("init: non 200 status code: %d", response.StatusCode)
+		logrus.Error("init: non 200 status code: %d", response.StatusCode)
 		return
 	}
 
 	var initResponse InitResponse
 
 	if err := json.Unmarshal(initRequestResponseBody, &initResponse); err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
-	log.Println("Encrypting unseal keys and the root token and uploading to bucket...")
+	logrus.Info("Encrypting unseal keys and the root token and uploading to bucket...")
 
 	AWSSession, err := session.NewSession()
 	if err != nil {
-		log.Println("Error creating session: ", err)
+		logrus.Error("Error creating session: ", err)
 	}
 
 	KMSService := kms.New(AWSSession)
@@ -210,7 +212,7 @@ func initialize() {
 		Plaintext: []byte(initResponse.RootToken),
 	})
 	if err != nil {
-		log.Println("Error encrypting root token: ", err)
+		logrus.Error("Error encrypting root token: ", err)
 	}
 
 	// Encrypt unseal keys.
@@ -219,7 +221,7 @@ func initialize() {
 		Plaintext: []byte(base64.StdEncoding.EncodeToString(initRequestResponseBody)),
 	})
 	if err != nil {
-		log.Println("Error encrypting unseal keys: ", err)
+		logrus.Error("Error encrypting unseal keys: ", err)
 	}
 
 	// Save the encrypted root token.
@@ -231,9 +233,9 @@ func initialize() {
 
 	_, err = S3Service.PutObject(rootTokenPutRequest)
 	if err != nil {
-		log.Printf("Cannot write root token to bucket s3://%s/%s: %s", s3BucketName, "root-token.json.enc", err)
+		logrus.Error("Cannot write root token to bucket s3://%s/%s: %s", s3BucketName, "root-token.json.enc", err)
 	} else {
-		log.Printf("Root token written to s3://%s/%s", s3BucketName, "root-token.json.enc")
+		logrus.Info("Root token written to s3://%s/%s", s3BucketName, "root-token.json.enc")
 	}
 
 	// Save the encrypted unseal keys.
@@ -245,19 +247,19 @@ func initialize() {
 
 	_, err = S3Service.PutObject(unsealKeysEncryptRequest)
 	if err != nil {
-		log.Printf("Cannot write unseal keys to bucket s3://%s/%s: %s", s3BucketName, "unseal-keys.json.enc", err)
+		logrus.Error("Cannot write unseal keys to bucket s3://%s/%s: %s", s3BucketName, "unseal-keys.json.enc", err)
 	} else {
-		log.Printf("Unseal keys written to s3://%s/%s", s3BucketName, "unseal-keys.json.enc")
+		logrus.Info("Unseal keys written to s3://%s/%s", s3BucketName, "unseal-keys.json.enc")
 	}
 
-	log.Println("Initialization complete.")
+	logrus.Info("Initialization complete.")
 }
 
 func unseal() {
 
 	AWSSession, err := session.NewSession()
 	if err != nil {
-		log.Println("Error creating session: ", err)
+		logrus.Error("Error creating session: ", err)
 	}
 
 	KMSService := kms.New(AWSSession)
@@ -270,20 +272,20 @@ func unseal() {
 
 	unsealKeysEncryptedObject, err := S3Service.GetObject(unsealKeysRequest)
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
 	unsealKeysEncryptedObjectData, err := ioutil.ReadAll(unsealKeysEncryptedObject.Body)
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 	}
 
 	unsealKeysData, err := KMSService.Decrypt(&kms.DecryptInput{
 		CiphertextBlob: unsealKeysEncryptedObjectData,
 	})
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
@@ -291,12 +293,12 @@ func unseal() {
 
 	unsealKeysPlaintext, err := base64.StdEncoding.DecodeString(string(unsealKeysData.Plaintext))
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
 	if err := json.Unmarshal(unsealKeysPlaintext, &initResponse); err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
@@ -307,7 +309,7 @@ func unseal() {
 		}
 
 		if err != nil {
-			log.Println(err)
+			logrus.Error(err)
 			return
 		}
 	}
@@ -356,6 +358,21 @@ func unsealOne(key string) (bool, error) {
 	return false, nil
 }
 
+func getLogLevel() logrus.Level {
+	levelString, exists := os.LookupEnv("LOG_LEVEL")
+	if !exists {
+		return logrus.InfoLevel
+	}
+
+	level, err := logrus.ParseLevel(levelString)
+	if err != nil {
+		logrus.Errorf("error parsing LOG_LEVEL: %v", err)
+		return logrus.InfoLevel
+	}
+
+	return level
+}
+
 func boolFromEnv(env string, def bool) bool {
 	val := os.Getenv(env)
 	if val == "" {
@@ -363,7 +380,7 @@ func boolFromEnv(env string, def bool) bool {
 	}
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		log.Fatalf("failed to parse %q: %s", env, err)
+		logrus.Fatalf("failed to parse %q: %s", env, err)
 	}
 	return b
 }
@@ -375,7 +392,7 @@ func intFromEnv(env string, def int) int {
 	}
 	i, err := strconv.Atoi(val)
 	if err != nil {
-		log.Fatalf("failed to parse %q: %s", env, err)
+		logrus.Fatalf("failed to parse %q: %s", env, err)
 	}
 	return i
 }
@@ -391,7 +408,7 @@ func durFromEnv(env string, def time.Duration) time.Duration {
 	}
 	d, err := time.ParseDuration(val)
 	if err != nil {
-		log.Fatalf("failed to parse %q: %s", env, err)
+		logrus.Fatalf("failed to parse %q: %s", env, err)
 	}
 	return d
 }
