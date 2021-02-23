@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -22,7 +23,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/api/option"
 )
@@ -30,7 +30,7 @@ import (
 var (
 	vaultAddr     string
 	gcsBucketName string
-	httpClient    http.Client
+	httpClient    *http.Client
 
 	vaultSecretShares      int
 	vaultSecretThreshold   int
@@ -79,6 +79,8 @@ type UnsealResponse struct {
 func main() {
 	log.Println("Starting the vault-init service...")
 
+	var err error
+
 	vaultAddr = os.Getenv("VAULT_ADDR")
 	if vaultAddr == "" {
 		vaultAddr = "https://127.0.0.1:8200"
@@ -97,6 +99,13 @@ func main() {
 		vaultRecoveryThreshold = intFromEnv("VAULT_RECOVERY_THRESHOLD", 1)
 	}
 
+	vaultCaCert := stringFromEnv("VAULT_CACERT", "")
+	vaultCaPath := stringFromEnv("VAULT_CAPATH", "")
+
+	vaultClientTimeout := durFromEnv("VAULT_CLIENT_TIMEOUT", 60*time.Second)
+
+	vaultServerName := stringFromEnv("VAULT_TLS_SERVER_NAME", "")
+
 	checkInterval := durFromEnv("CHECK_INTERVAL", 10*time.Second)
 
 	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
@@ -111,13 +120,7 @@ func main() {
 
 	kmsCtx, kmsCtxCancel := context.WithCancel(context.Background())
 	defer kmsCtxCancel()
-	kmsClient, err := google.DefaultClient(kmsCtx, "https://www.googleapis.com/auth/cloudkms")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	kmsService, err = cloudkms.New(kmsClient)
+	kmsService, err = cloudkms.NewService(kmsCtx)
 	if err != nil {
 		log.Println(err)
 		return
@@ -128,26 +131,27 @@ func main() {
 	defer storageCtxCancel()
 	storageClient, err = storage.NewClient(storageCtx,
 		option.WithUserAgent(userAgent),
-		option.WithScopes(storage.ScopeReadWrite),
-	)
+		option.WithScopes(storage.ScopeReadWrite))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	httpClient = http.Client{
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: vaultInsecureSkipVerify,
+	}
+	if err := processTLSConfig(tlsConfig, vaultServerName, vaultCaCert, vaultCaPath); err != nil {
+		log.Fatal(err)
+	}
+
+	httpClient = &http.Client{
+		Timeout: vaultClientTimeout,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: vaultInsecureSkipVerify,
-			},
+			TLSClientConfig: tlsConfig,
 		},
 	}
 
-	signalCh := make(chan os.Signal)
-	signal.Notify(signalCh,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGKILL,
-	)
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
 	stop := func() {
 		log.Printf("Shutting down")
@@ -406,6 +410,51 @@ func unsealOne(key string) (bool, error) {
 	return false, nil
 }
 
+func processTLSConfig(cfg *tls.Config, serverName, caCert, caPath string) error {
+	cfg.ServerName = serverName
+
+	// If a CA cert is provided, trust only that cert
+	if caCert != "" {
+		b, err := ioutil.ReadFile(caCert)
+		if err != nil {
+			return fmt.Errorf("failed to read CA cert: %w", err)
+		}
+
+		root := x509.NewCertPool()
+		if ok := root.AppendCertsFromPEM(b); !ok {
+			return fmt.Errorf("failed to parse CA cert")
+		}
+
+		cfg.RootCAs = root
+		return nil
+	}
+
+	// If a directory is provided, trust only the certs in that directory
+	if caPath != "" {
+		files, err := ioutil.ReadDir(caPath)
+		if err != nil {
+			return fmt.Errorf("failed to read CA path: %w", err)
+		}
+
+		root := x509.NewCertPool()
+
+		for _, f := range files {
+			b, err := ioutil.ReadFile(f.Name())
+			if err != nil {
+				return fmt.Errorf("failed to read cert: %w", err)
+			}
+			if ok := root.AppendCertsFromPEM(b); !ok {
+				return fmt.Errorf("failed to parse cert")
+			}
+		}
+
+		cfg.RootCAs = root
+		return nil
+	}
+
+	return nil
+}
+
 func boolFromEnv(env string, def bool) bool {
 	val := os.Getenv(env)
 	if val == "" {
@@ -428,6 +477,14 @@ func intFromEnv(env string, def int) int {
 		log.Fatalf("failed to parse %q: %s", env, err)
 	}
 	return i
+}
+
+func stringFromEnv(env string, def string) string {
+	val := os.Getenv(env)
+	if val == "" {
+		return def
+	}
+	return val
 }
 
 func durFromEnv(env string, def time.Duration) time.Duration {

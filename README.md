@@ -62,6 +62,15 @@ The vault-init service supports the following environment variables for configur
 - `VAULT_SKIP_VERIFY` (false) - Disable TLS validation when connecting. Setting
   to true is highly discouraged.
 
+- `VAULT_CACERT` ("") - Path on disk to the CA _file_ to use for verifying TLS
+  connections to Vault.
+
+- `VAULT_CAPATH` ("") - Path on disk to a directory containing the CAs to use
+  for verifying TLS connections to Vault. `VAULT_CACERT` takes precedence.
+
+- `VAULT_TLS_SERVER_NAME` ("") - Custom SNI hostname to use when validating TLS
+  connections to Vault.
+
 ### Example Values
 
 ```
