@@ -27,10 +27,17 @@ import (
 	"google.golang.org/api/option"
 )
 
+const (
+	defaultUnsealKeysObject = "unseal-keys.json.enc"
+	defaultRootTokenObject  = "root-token.enc"
+)
+
 var (
-	vaultAddr     string
-	gcsBucketName string
-	httpClient    *http.Client
+	vaultAddr           string
+	gcsBucketName       string
+	gcsUnsealKeysObject string
+	gcsRootTokenObject  string
+	httpClient          *http.Client
 
 	vaultSecretShares      int
 	vaultSecretThreshold   int
@@ -112,6 +119,9 @@ func main() {
 	if gcsBucketName == "" {
 		log.Fatal("GCS_BUCKET_NAME must be set and not empty")
 	}
+
+	gcsRootTokenObject = stringFromEnv("GCS_ROOT_TOKEN_OBJECT", defaultRootTokenObject)
+	gcsUnsealKeysObject = stringFromEnv("GCS_UNSEAL_KEYS_OBJECT", defaultUnsealKeysObject)
 
 	kmsKeyId = os.Getenv("KMS_KEY_ID")
 	if kmsKeyId == "" {
@@ -289,7 +299,7 @@ func initialize() {
 
 	// Save the encrypted unseal keys.
 	ctx := context.Background()
-	unsealKeysObject := bucket.Object("unseal-keys.json.enc").NewWriter(ctx)
+	unsealKeysObject := bucket.Object(gcsUnsealKeysObject).NewWriter(ctx)
 	defer unsealKeysObject.Close()
 
 	_, err = unsealKeysObject.Write([]byte(unsealKeysEncryptResponse.Ciphertext))
@@ -297,10 +307,10 @@ func initialize() {
 		log.Println(err)
 	}
 
-	log.Printf("Unseal keys written to gs://%s/%s", gcsBucketName, "unseal-keys.json.enc")
+	log.Printf("Unseal keys written to gs://%s/%s", gcsBucketName, gcsUnsealKeysObject)
 
 	// Save the encrypted root token.
-	rootTokenObject := bucket.Object("root-token.enc").NewWriter(ctx)
+	rootTokenObject := bucket.Object(gcsRootTokenObject).NewWriter(ctx)
 	defer rootTokenObject.Close()
 
 	_, err = rootTokenObject.Write([]byte(rootTokenEncryptResponse.Ciphertext))
@@ -308,7 +318,7 @@ func initialize() {
 		log.Println(err)
 	}
 
-	log.Printf("Root token written to gs://%s/%s", gcsBucketName, "root-token.enc")
+	log.Printf("Root token written to gs://%s/%s", gcsBucketName, gcsRootTokenObject)
 
 	log.Println("Initialization complete.")
 }
@@ -317,7 +327,7 @@ func unseal() {
 	bucket := storageClient.Bucket(gcsBucketName)
 
 	ctx := context.Background()
-	unsealKeysObject, err := bucket.Object("unseal-keys.json.enc").NewReader(ctx)
+	unsealKeysObject, err := bucket.Object(gcsUnsealKeysObject).NewReader(ctx)
 	if err != nil {
 		log.Println(err)
 		return
