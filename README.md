@@ -40,6 +40,10 @@ The `vault-init` service supports the following environment variables for config
 - `GCS_BUCKET_NAME` - The Google Cloud Storage Bucket where the Vault master key
   and root token is stored.
 
+- `GCS_ROOT_TOKEN_OBJECT` ("root-token.enc") - The name of the storage object to create containing the vault root token in the storage bucket specified by `GCS_BUCKET_NAME`
+
+- `GCS_UNSEAL_KEYS_OBJECT` ("unseal-keys.json.enc") - The name of the storage object to create containing the unseal keys in the storage bucket specified by `GCS_BUCKET_NAME`
+
 - `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the
   vault master key and root token.
 
